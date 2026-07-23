@@ -11,11 +11,11 @@
 
 - [ ] **Initialise monorepo structure** — create `/server` and `/client` folders in one root project
 - [ ] **Set up Node + Express server** — basic `index.js`, port running, health check route `GET /health` returning `{ status: "ok" }`
-- [ ] **Connect to Neon PostgreSQL** — create a free Neon project, get the connection string, add it to `.env`
-- [ ] **Install and configure Prisma** — `npx prisma init`, point `DATABASE_URL` to Neon
+- [ ] **Connect to Supabase PostgreSQL** — create a free Supabase project, get the connection string, add it to `.env`
+- [ ] **Install and configure Prisma** — `npx prisma init`, point `DATABASE_URL` to Supabase.
 - [ ] **Write the Prisma schema** — define all models: `User`, `Business`, `Staff`, `Service`, `StaffService`, `WorkingHours`, `Holiday`, `Booking`, `ConversationState`
 - [ ] **Understand every field before writing it** — for each model, ask: what does this store, why is it a relation, what would break without it
-- [ ] **Run first migration** — `npx prisma migrate dev --name init`, verify tables appear in Neon dashboard
+- [ ] **Run first migration** — `npx prisma migrate dev --name init`, verify tables appear in Supabase dashboard
 - [ ] **Seed the database** — write a `seed.ts` that creates one test business, one staff member, and one service
 - [ ] **Verify with Prisma Studio** — run `npx prisma studio`, confirm seeded data looks correct
 - [ ] **Add `.env.example`** — document all required env vars so the project is reproducible
