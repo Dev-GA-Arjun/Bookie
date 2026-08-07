@@ -1,0 +1,139 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  name         String
+  email        String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  business     Business?
+}
+
+model Business {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  address            String
+  phone              String
+  timezone           String              @default("Asia/Kolkata")
+  bookingSlug        String              @unique
+  createdAt          DateTime            @default(now())
+  user               User                @relation(fields: [userId], references: [id])
+  userId             Int                 @unique
+  staff              Staff[]
+  service            Service[]
+  holiday            Holiday[]
+  bookings           Booking[]
+  conversationStates ConversationState[]
+}
+
+model Staff {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  phone              String?
+  isActive           Boolean             @default(true)
+  business           Business            @relation(fields: [businessId], references: [id])
+  businessId         Int
+  createdAt          DateTime            @default(now())
+  staffServices      StaffService[]
+  workingHours       WorkingHours[]
+  bookings           Booking[]
+  conversationStates ConversationState[]
+}
+
+model Service {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  durationMins       Int
+  price              Float
+  isActive           Boolean             @default(true)
+  business           Business            @relation(fields: [businessId], references: [id])
+  businessId         Int
+  createdAt          DateTime            @default(now())
+  staffServices      StaffService[]
+  bookings           Booking[]
+  conversationStates ConversationState[]
+}
+
+model StaffService {
+  id        Int     @id @default(autoincrement())
+  service   Service @relation(fields: [serviceId], references: [id])
+  staff     Staff   @relation(fields: [staffId], references: [id])
+  serviceId Int
+  staffId   Int
+}
+
+model WorkingHours {
+  id         Int     @id @default(autoincrement())
+  staff      Staff   @relation(fields: [staffId], references: [id])
+  staffId    Int
+  dayOfWeek  Int
+  startTime  String
+  endTime    String
+  breakStart String?
+  breakEnd   String?
+}
+
+model Holiday {
+  id         Int      @id @default(autoincrement())
+  business   Business @relation(fields: [businessId], references: [id])
+  businessId Int
+  date       DateTime
+  reason     String?
+}
+
+enum BookingStatus {
+  confirmed
+  cancelled
+  no_show
+}
+
+model Booking {
+  id            Int           @id @default(autoincrement())
+  customerName  String?
+  customerPhone String
+  date          DateTime
+  startTime     String
+  status        BookingStatus @default(confirmed)
+  business      Business      @relation(fields: [businessId], references: [id])
+  businessId    Int
+  staff         Staff         @relation(fields: [staffId], references: [id])
+  staffId       Int
+  service       Service       @relation(fields: [serviceId], references: [id])
+  serviceId     Int
+  createdAt     DateTime      @default(now())
+}
+
+enum BookingSteps {
+  ChooseService
+  SelectStaff
+  SelectDate
+  ConfirmBooking
+}
+
+model ConversationState {
+  id             Int          @id @default(autoincrement())
+  businessId     Int
+  business       Business     @relation(fields: [businessId], references: [id])
+  step           BookingSteps @default(ChooseService)
+  serviceId      Int?
+  service        Service?     @relation(fields: [serviceId], references: [id])
+  staffId        Int?
+  staff          Staff?       @relation(fields: [staffId], references: [id])
+  selectedDate   DateTime?
+  availableSlots Json?
+  lastUpdated    DateTime     @updatedAt
+  customerPhone  String
+
+  @@unique([customerPhone, businessId])
+}
