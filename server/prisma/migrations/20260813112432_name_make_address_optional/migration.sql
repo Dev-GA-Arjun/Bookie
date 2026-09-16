@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Business" ALTER COLUMN "address" DROP NOT NULL,
+ALTER COLUMN "phone" DROP NOT NULL,
+ALTER COLUMN "bookingSlug" DROP NOT NULL;
