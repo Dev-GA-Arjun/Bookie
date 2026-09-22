@@ -1,4 +1,4 @@
-# Bookie — Project Reference
+# Bookie
 
 > WhatsApp-based appointment booking platform for local service businesses.
 > Tier-2 city salons, parlours, barbershops, tailors — no app, no website, just WhatsApp.
