@@ -2,10 +2,10 @@
     // loginUser (name, email, password, businessName ) 
 
     import { PrismaPg } from '@prisma/adapter-pg'
-    import bcrypt from 'bcrypt';
     import { PrismaClient } from '@prisma/client';
+    import bcrypt from 'bcrypt';
     import jwt from 'jsonwebtoken';
-    import generateSlug from "../utils/slug";
+    import {generateSlug} from "../utils/slug.js";
 
     const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
     const prisma = new PrismaClient({ adapter });
@@ -66,4 +66,28 @@
         return { token }; 
     }
 
-    export { registerUserService, loginUserService };
+    const getUserInfoService = async (decoded) => {
+        const { userId, businessId } = decoded;
+                const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                business: {
+                    select: {
+                        id: true,
+                        name: true,
+                        bookingSlug: true,
+                        address: true
+                    }
+                }
+            }
+        });
+        if(!user){
+            throw new Error("User not found");
+        }
+        return user;
+    }
+
+    export { registerUserService, loginUserService, getUserInfoService };

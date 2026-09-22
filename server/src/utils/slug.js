@@ -11,4 +11,4 @@ const generateSlug = (businessName) => {
     return bookingSlug;
 }
 
-export default generateSlug;
+export {generateSlug};
