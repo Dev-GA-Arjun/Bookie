@@ -23,8 +23,8 @@ model User {
 model Business {
   id                 Int                 @id @default(autoincrement())
   name               String
-  address            String
-  phone              String
+  address            String?
+  phone              String?
   timezone           String              @default("Asia/Kolkata")
   bookingSlug        String              @unique
   createdAt          DateTime            @default(now())
