@@ -1,5 +1,5 @@
 import { updateBusinessProfile } from "../controllers/business.controller.js";
-import { validateBusinessProfile } from "../middleware/validate.middleware.js";
+import { validateBusinessProfile } from "../middleware/validateBusiness.middleware.js";
 
 import express from "express";
 import authenticateToken from "../middleware/auth.middleware.js";
