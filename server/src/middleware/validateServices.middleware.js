@@ -8,7 +8,28 @@ const validateCreateService = (req, res, next) => {
             message: 'Request body must be a valid object'
         });
     }
-    const { name, durationMins, price } = req.body;
+    const body = req.body;
+    const { name, durationMins, price } = body;
+    const allowedFields = ['name','durationMins', 'price'];
+    const fields = Object.keys(body);
+
+    if (fields.length === 0) {
+        return res.status(400).json({
+            success: false,
+            message: 'Service name is required'
+        });
+    }
+
+    const unsupportedFields = fields.filter(
+        field => !allowedFields.includes(field)
+    );
+
+    if (unsupportedFields.length > 0) {
+        return res.status(400).json({
+            success: false,
+            message: `Unsupported fields: ${unsupportedFields.join(', ')}`
+        });
+    }
 
     if (typeof name !== 'string' || !name.trim()) {
         return res.status(400).json({

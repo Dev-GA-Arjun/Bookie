@@ -71,6 +71,8 @@ model StaffService {
   staff     Staff   @relation(fields: [staffId], references: [id])
   serviceId Int
   staffId   Int
+
+  @@unique([staffId, serviceId])
 }
 
 model WorkingHours {

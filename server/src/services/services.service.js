@@ -1,8 +1,4 @@
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@prisma/client";
-
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL})
-const prisma = new PrismaClient({ adapter });
+import prisma from "../lib/prisma.js";
 
 const createServicesService = async (data, businessId) => {
     const newService = await prisma.service.create({ data: {...data, businessId}});
@@ -21,12 +17,12 @@ const getOneServiceService = async (businessId, serviceId) => {
 
 const updateServicesService = async (data, businessId, serviceId) => {
 
-    const updatedService = await prisma.service.update({ where: {id: serviceId}, data});
+    const updatedService = await prisma.service.update({ where: {id: serviceId, businessId}, data});
     return updatedService;
 }
 
 const deleteServicesService = async (businessId, serviceId) => {
-    await prisma.service.delete({ where: {id: serviceId}});
+    await prisma.service.delete({ where: {id: serviceId, businessId}});
     return
 }
 
