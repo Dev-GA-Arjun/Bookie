@@ -5,7 +5,7 @@ import { registerUserService, loginUserService, getUserInfoService } from "../se
 // registerUser
 // inputs req, res calls registerUsr function from service (req.body)
 // returns token with code 201 on success 
-const registerUserController = async (req, res) => {
+const registerUserController = async (req, res, next) => {
     try{
         const { token } = await registerUserService(req.body);
         return res.status(201).json({
@@ -14,16 +14,7 @@ const registerUserController = async (req, res) => {
         })
 
     }catch(err){
-        if (err.message == "User with this email already exists"){
-            return res.status(409).json({
-                success: false,
-                error: err.message
-            })
-        }
-        return res.status(500).json({
-            success: false,
-            error: err.message
-        })
+        next(err)
     }
 
 }
@@ -39,16 +30,7 @@ const loginUserController = async (req, res) => {
             token
         })
     }catch(err){
-        if(err.message == "Invalid email or password"){
-            return res.status(401).json({
-                success: false,
-                error: err.message
-            })
-        }
-        return res.status(500).json({
-            success: false,
-            error: err.message
-        })
+        next(err)
     }
 }
 
@@ -87,7 +69,7 @@ const getUserInfo = async (req, res) => {
         
 
     }catch(err){
-
+        next(err)
     }
 }
 

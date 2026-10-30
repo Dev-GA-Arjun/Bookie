@@ -15,7 +15,9 @@ On the customer side, calling to book feels like friction. But these same custom
 
 ## Solution
 
-Bookie is a multi-tenant SaaS platform where customers book appointments through a guided WhatsApp conversation. No app install. No account creation. They scan a QR code, chat with a booking assistant, and reserve a slot.
+Bookie is a multi-tenant SaaS platform where customers book appointments through a natural WhatsApp conversation. No app install. No account creation. They scan a QR code, type what they want in plain language, and reserve a slot.
+
+The booking flow is guided but not rigid. Instead of forcing customers to reply with numbered options, Bookie uses an LLM to extract intent from each message — service name, staff preference, date, time — and maps it to the correct booking step. The flow stays structured; the input becomes human.
 
 Each business gets its own dashboard to manage staff, services, schedules, and bookings. The platform runs multiple businesses from a single backend with complete data isolation between tenants.
 
@@ -42,41 +44,37 @@ Dashboard updates in real time
 **Example conversation:**
 
 ```
-Bot:      "Welcome to Glow Salon! Choose a service:
-           1. Hair Cut
-           2. Facial
-           3. Beard Trim"
+Bot:      "Welcome to Glow Salon! What can we help you with today?
+           We offer: Hair Cut, Facial, Beard Trim"
 
-Customer: "1"
+Customer: "I want a haircut"
 
-Bot:      "Choose a staff member:
-           1. Alice
-           2. Bob (any available)"
+Bot:      "Who would you like?
+           Alice is available for Hair Cut.
+           Bob is also available. Or say 'anyone' for the next free slot."
 
-Customer: "1"
+Customer: "Alice please"
 
-Bot:      "Choose a date (e.g. 25 July):"
+Bot:      "What date works for you?"
 
-Customer: "25 July"
+Customer: "This Saturday"
 
-Bot:      "Available slots:
-           1. 9:00 AM
-           2. 10:30 AM
-           3. 2:00 PM"
+Bot:      "Available slots with Alice on 26 July:
+           9:00 AM, 10:30 AM, 2:00 PM"
 
-Customer: "2"
+Customer: "10:30 in the morning"
 
 Bot:      "Confirm booking?
-           Service: Hair Cut | Staff: Alice | 10:30 AM, 25 July
+           Service: Hair Cut | Staff: Alice | 10:30 AM, 26 July
            Reply YES or NO"
 
-Customer: "YES"
+Customer: "yes"
 
-Bot:      "Booking confirmed! See you at 10:30 AM on 25 July.
-           Alice will be ready for you. ✓"
+Bot:      "Booking confirmed! See you at 10:30 AM on 26 July.
+           Alice will be ready for you."
 ```
 
-No free-form AI conversation in V1. The flow is fully guided with predefined prompts.
+The flow is structured — the bot always knows which step it is on. But the customer's input is natural language. The LLM extracts the intent from each message and maps it to the current step rather than requiring numbered replies.
 
 ---
 
@@ -88,11 +86,15 @@ No free-form AI conversation in V1. The flow is fully guided with predefined pro
 - Manage services, staff, working hours, and holidays
 - View and manage all bookings from the dashboard
 - Generate and display their WhatsApp QR code
-  **Customer**
+
+**Customer**
+
 - Scan the QR code
 - Book an appointment via WhatsApp
 - Receive confirmation
-  **Platform Admin** _(future)_
+
+**Platform Admin** _(future)_
+
 - Manage all businesses on the platform
 - View platform-wide statistics
 - Suspend or activate accounts
@@ -109,6 +111,7 @@ No free-form AI conversation in V1. The flow is fully guided with predefined pro
 | Database   | PostgreSQL (Neon)                                       |
 | Auth       | JWT, bcrypt                                             |
 | WhatsApp   | WhatsApp Cloud API (Meta)                               |
+| AI         | Openrouter AI API key(free tier)                        |
 | Deployment | Vercel (frontend), Railway or Render (backend)          |
 
 PostgreSQL is chosen over MongoDB because the data is relational — businesses have staff, staff have services, services have bookings. Foreign key constraints enforce integrity at the database level. Prisma sits on top as a TypeScript-first ORM that stays close to raw SQL.
@@ -124,6 +127,10 @@ WhatsApp Cloud API → Webhook POST
         ↓
 Node / Express Backend
         ↓
+Intent Parser — Openrouter AI API
+(reads current step + customer message,
+ returns structured JSON: { intent, serviceName, staffName, date, time })
+        ↓
 Conversation State Manager (ConversationState table in PostgreSQL)
         ↓
 PostgreSQL — Neon
@@ -132,10 +139,12 @@ PostgreSQL — Neon
         ↓
 React Dashboard (business owner)
         ↓
-WhatsApp Cloud API (outbound confirmation to customer)
+WhatsApp Cloud API (outbound reply to customer)
 ```
 
 Webhooks are stateless — every incoming WhatsApp message is a fresh HTTP POST with no memory of prior messages. Conversation state (where each phone number is in the booking flow) is stored per customer in the `ConversationState` table. This is the core engineering problem the system solves.
+
+The Intent Parser sits between the raw message and the state machine. It receives the customer's message, the current step, and the list of valid options for that step. It returns a structured JSON object. The state machine only ever works with that structured output — it never tries to parse raw text itself.
 
 ---
 
@@ -189,20 +198,65 @@ The state machine is the core of the WhatsApp bot. Each customer phone number ha
 IDLE
   ↓  (customer sends any message)
 SELECTING_SERVICE
-  ↓  (customer sends a number)
+  ↓  (LLM extracts service name from message, matched against business services)
 SELECTING_STAFF
-  ↓  (customer sends a number)
+  ↓  (LLM extracts staff name or "any" from message)
 SELECTING_DATE
-  ↓  (customer sends a date)
+  ↓  (LLM extracts and normalises date from message, e.g. "this Saturday" → "2026-08-08")
 SELECTING_SLOT
-  ↓  (customer sends a number)
+  ↓  (LLM extracts time from message, matched against available slots)
 CONFIRMING
-  ↓  (customer sends YES)
+  ↓  (LLM detects YES / NO intent)
 BOOKED → resets to IDLE
 
-At any step: unrecognised input → re-prompt the current step
-Customer sends "cancel" → reset to IDLE with a message
+At any step: LLM returns { intent: "unclear" } → re-prompt the current step
+Customer expresses cancellation intent at any step → reset to IDLE with a message
 ```
+
+---
+
+## AI Intent Parsing
+
+Every incoming WhatsApp message passes through an intent parser before reaching the state machine. The parser is a single function — `parseIntent(step, message, context)` — that calls the Anthropic API and returns structured JSON.
+
+**How it works:**
+
+The function receives three things: the current state machine step, the customer's raw message, and a context object containing the valid options for that step (e.g. the list of services, or the list of available slots). It sends these to Claude with a carefully engineered prompt that instructs the model to return only JSON — no prose, no explanation.
+
+**Prompt structure:**
+
+```
+System: You are a booking assistant parser. You extract structured intent
+        from customer messages. You always respond with valid JSON only.
+        Never include explanation or markdown.
+
+User:   Current step: SELECTING_SERVICE
+        Available services: ["Hair Cut", "Facial", "Beard Trim"]
+        Customer message: "I want a haircut please"
+
+        Return JSON in this exact shape:
+        {
+          "intent": "selected" | "cancel" | "unclear",
+          "value": <extracted value or null>
+        }
+```
+
+**Structured output contract:**
+
+Every response from the parser is validated against this shape before the state machine uses it:
+
+```json
+{
+  "intent": "selected" | "cancel" | "unclear",
+  "value": "Hair Cut" | "Alice" | "2026-07-26" | "10:30" | true | null
+}
+```
+
+The value field is always normalised — dates become ISO strings, times become 24-hour strings, service and staff names are matched to exact DB values. If the LLM returns something that does not match the schema, the parser treats it as `{ intent: "unclear", value: null }` and the state machine re-prompts.
+
+**Why this approach:**
+
+The state machine stays simple and deterministic. It never sees raw text. All the complexity of natural language sits in one isolated function with one well-defined output contract. This makes the system easy to test, debug, and improve independently of the booking logic.
 
 ---
 
@@ -215,7 +269,8 @@ Slots are not pre-stored in the database. They are computed on demand from:
 - Break timings (e.g. lunch 1–2 PM)
 - Existing confirmed bookings for that staff on that date
 - Holidays (blocked dates return no slots)
-  **Example:**
+
+**Example:**
 
 ```
 Working hours:   9:00 AM – 6:00 PM
@@ -238,14 +293,20 @@ This avoids storing thousands of rows and keeps the DB lean.
 
 - `POST /api/auth/register` — create user + business, return JWT
 - `POST /api/auth/login` — verify credentials, return JWT
-  **Business**
+
+**Business**
+
 - `PATCH /api/business/profile` — update name, address, timezone _(protected)_
-  **Services**
+
+**Services**
+
 - `GET /api/services` — list services for logged-in business
 - `POST /api/services` — create a service
 - `PATCH /api/services/:id` — update a service
 - `DELETE /api/services/:id` — delete a service
-  **Staff**
+
+**Staff**
+
 - `GET /api/staff` — list staff
 - `POST /api/staff` — create staff member
 - `PATCH /api/staff/:id` — update staff
@@ -254,17 +315,25 @@ This avoids storing thousands of rows and keeps the DB lean.
 - `GET /api/staff/:id/hours` — get working schedule
 - `POST /api/staff/:id/hours` — set working hours
 - `PATCH /api/staff/:id/hours` — update schedule
-  **Holidays**
+
+**Holidays**
+
 - `GET /api/holidays` — list blocked dates
 - `POST /api/holidays` — add a blocked date
 - `DELETE /api/holidays/:id` — remove a blocked date
-  **Slots**
+
+**Slots**
+
 - `GET /api/slots?staffId=&serviceId=&date=` — returns dynamically generated available slots
-  **Bookings**
+
+**Bookings**
+
 - `GET /api/bookings` — list bookings with filters (today / upcoming / cancelled)
 - `POST /api/bookings` — create a booking (used internally by the bot)
 - `PATCH /api/bookings/:id/cancel` — cancel a booking
-  **WhatsApp Webhook**
+
+**WhatsApp Webhook**
+
 - `GET /api/webhook` — Meta webhook verification challenge
 - `POST /api/webhook` — receive and route incoming WhatsApp messages
 
@@ -309,17 +378,27 @@ When a customer scans the QR code, WhatsApp opens with a pre-filled message sent
 
 - Cards: today's bookings, upcoming bookings, active staff, total services
 - Table: today's schedule
-  **Bookings page**
+
+**Bookings page**
+
 - Filter tabs: Today / Upcoming / Cancelled
 - Each row: customer name, phone, service, staff, date, time, status
 - One-click cancel — sends WhatsApp notification to customer automatically
-  **Services page**
+
+**Services page**
+
 - Add, edit, toggle active/inactive
-  **Staff page**
+
+**Staff page**
+
 - Add staff, assign services, set working hours per day
-  **QR Code page**
+
+**QR Code page**
+
 - Display and download the business's WhatsApp booking QR code
-  **Real-time updates**
+
+**Real-time updates**
+
 - Dashboard polls bookings every 10 seconds via TanStack Query `refetchInterval`
 
 ---
@@ -341,7 +420,7 @@ During development, the webhook URL is exposed via ngrok. In production, the Rai
 
 These are intentionally deferred:
 
-- AI-powered natural language conversations
+- Fully open-ended AI conversations (the bot handles natural language but within a structured flow)
 - Online payments and subscription billing
 - Customer login / account portal
 - Appointment rescheduling
@@ -360,4 +439,4 @@ These are intentionally deferred:
 
 ## Success Criteria
 
-A business owner can register, configure services, staff, working schedules, and holidays, then generate a unique QR code for customers. A customer scans the QR code, books an appointment through a guided WhatsApp conversation, and the appointment immediately appears in the business's dashboard. The platform supports multiple independent businesses using a single WhatsApp integration with complete data isolation between tenants.
+A business owner can register, configure services, staff, working schedules, and holidays, then generate a unique QR code for customers. A customer scans the QR code, books an appointment by typing naturally in WhatsApp — no numbered menus, no rigid commands — and the appointment immediately appears in the business's dashboard. The platform supports multiple independent businesses using a single WhatsApp integration with complete data isolation between tenants.

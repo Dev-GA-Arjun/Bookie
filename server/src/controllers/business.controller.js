@@ -3,7 +3,7 @@ import { updateBusinessProfileService } from "../services/business.service.js";
 
 
 //update business profile
-const updateBusinessProfile = async (req, res) => {
+const updateBusinessProfile = async (req, res, next) => {
     try{
         const updatedData = req.body;
         const businessId = req.user.businessId;
@@ -21,10 +21,7 @@ const updateBusinessProfile = async (req, res) => {
         })
 
     }catch(err){
-        return res.status(500).json({
-            success: false,
-            message: err.message
-        })
+        next(err)
     }
     
 }

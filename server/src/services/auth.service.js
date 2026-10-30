@@ -1,13 +1,9 @@
 // registerUser ( name, email, password, businessName )
 // loginUser (name, email, password, businessName ) 
-import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient } from '@prisma/client';
+import prisma from "../lib/prisma.js";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import {generateSlug} from "../utils/slug.js";
-
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
-const prisma = new PrismaClient({ adapter });
 
 const registerUserService = async (newUser) => {
     const { name, email, password, businessName } = newUser;
