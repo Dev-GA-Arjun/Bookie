@@ -4,7 +4,10 @@ import {
     createStaffService,
     updateStaffService,
     deleteStaffService,
-    assignStaffServicesService
+    assignStaffServicesService,
+    getStaffWorkingHoursService,
+    setStaffWorkingHoursService,
+    updateStaffWorkingHoursService
 } from "../services/staff.service.js";
 
 const getAllStaff = async (req, res, next) => {
@@ -124,4 +127,81 @@ const assignStaffServices = async (req, res, next) => {
     }
 }
 
-export { getAllStaff, createStaff, updateStaff, deleteStaff, assignStaffServices };
+const getStaffWorkingHours = async (req, res, next) => {
+    try {
+        const { businessId } = req.user;
+        const result = await getStaffWorkingHoursService(businessId, req.staffId);
+        if (result.status === 'staff-not-found') {
+            return res.status(404).json({
+                success: false,
+                message: "Staff not found"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: result.hours
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
+const setStaffWorkingHours = async (req, res, next) => {
+    try {
+        const { businessId } = req.user;
+        const result = await setStaffWorkingHoursService(
+            businessId,
+            req.staffId,
+            req.workingHours
+        );
+        if (result.status === 'staff-not-found') {
+            return res.status(404).json({
+                success: false,
+                message: "Staff not found"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: result.hours
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
+const updateStaffWorkingHours = async (req, res, next) => {
+    try {
+        const { businessId } = req.user;
+        const result = await updateStaffWorkingHoursService(
+            businessId,
+            req.staffId,
+            req.workingHours
+        );
+        if (result.status === 'staff-not-found') {
+            return res.status(404).json({
+                success: false,
+                message: "Staff not found"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: result.hours
+        });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export {
+    getAllStaff,
+    createStaff,
+    updateStaff,
+    deleteStaff,
+    assignStaffServices,
+    getStaffWorkingHours,
+    setStaffWorkingHours,
+    updateStaffWorkingHours
+};

@@ -63,9 +63,9 @@
 
 ### Working Hours
 
-- [ ] **POST /api/staff/:id/hours** — set working hours per day for a staff member
-- [ ] **GET /api/staff/:id/hours** — fetch working schedule
-- [ ] **PATCH /api/staff/:id/hours** — update schedule
+- [x] **POST /api/staff/:id/hours** — set working hours per day for a staff member
+- [x] **GET /api/staff/:id/hours** — fetch working schedule
+- [x] **PATCH /api/staff/:id/hours** — update schedule
 
 ### Holidays
 

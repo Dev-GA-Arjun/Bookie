@@ -84,6 +84,8 @@ model WorkingHours {
   endTime    String
   breakStart String?
   breakEnd   String?
+
+  @@unique([staffId, dayOfWeek])
 }
 
 model Holiday {
